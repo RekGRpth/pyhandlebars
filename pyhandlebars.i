@@ -26,7 +26,6 @@ extern PyObject *pyhandlebars_compiler_flag_use_depths(void);
 
 extern PyObject *pyhandlebars_convert_input(bool convert);
 extern PyObject *pyhandlebars_enable_partial_loader(bool partial);
-extern PyObject *pyhandlebars_run_count(long run);
 
 extern PyObject *pyhandlebars_partial_extension(PyObject *extension);
 extern PyObject *pyhandlebars_partial_path(PyObject *path);
@@ -54,7 +53,6 @@ extern PyObject *pyhandlebars_compiler_flag_use_depths(void);
 
 extern PyObject *pyhandlebars_convert_input(bool convert);
 extern PyObject *pyhandlebars_enable_partial_loader(bool partial);
-extern PyObject *pyhandlebars_run_count(long run);
 
 extern PyObject *pyhandlebars_partial_extension(PyObject *extension);
 extern PyObject *pyhandlebars_partial_path(PyObject *path);

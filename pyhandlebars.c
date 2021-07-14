@@ -30,7 +30,6 @@ const char *PyUnicode_AsUTF8(PyObject *unicode) {
 
 static bool convert_input = true;
 static bool enable_partial_loader = true;
-static long run_count = 1;
 static struct handlebars_context *ctx = NULL;
 static struct handlebars_string *partial_extension = NULL;
 static struct handlebars_string *partial_path = NULL;
@@ -56,7 +55,6 @@ PyObject *pyhandlebars_compiler_flag_use_depths(void) { compiler_flags |= handle
 
 PyObject *pyhandlebars_convert_input(bool convert) { convert_input = convert; Py_RETURN_NONE; }
 PyObject *pyhandlebars_enable_partial_loader(bool partial) { enable_partial_loader = partial; Py_RETURN_NONE; }
-PyObject *pyhandlebars_run_count(long run) { run_count = run; Py_RETURN_NONE; }
 
 static void pyhandlebars_clean(void) {
     handlebars_context_dtor(ctx);
@@ -115,20 +113,21 @@ static void handlebars_value_init_json_string_length(struct handlebars_context *
 }
 
 static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *file) {
+    const char *json_data;
+    const char *template_data;
     jmp_buf jmp;
+    Py_ssize_t json_len;
+    Py_ssize_t template_len;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
     struct handlebars_module *module;
     struct handlebars_parser *parser;
     struct handlebars_program *program;
-    struct handlebars_string *buffer = NULL;
+    struct handlebars_string *buffer;
     struct handlebars_string *tmpl;
     struct handlebars_value *input;
     struct handlebars_value *partials;
-    const char *json_data;
-    const char *template_data;
-    Py_ssize_t json_len;
-    Py_ssize_t template_len;
+    struct handlebars_vm *vm;
     if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
     if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
     if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
@@ -151,18 +150,14 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, json_data, json_len);
     if (convert_input) handlebars_value_convert(input);
-    if (enable_partial_loader) partials = handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx));
-    do {
-        struct handlebars_vm *vm = handlebars_vm_ctor(ctx);
-        handlebars_vm_set_flags(vm, compiler_flags);
-        if (enable_partial_loader) handlebars_vm_set_partials(vm, partials);
-        if (buffer) handlebars_talloc_free(buffer);
-        buffer = handlebars_vm_execute(vm, module, input);
-        buffer = talloc_steal(ctx, buffer);
-        handlebars_vm_dtor(vm);
-    } while(--run_count > 0);
+    partials = enable_partial_loader ? handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx)) : NULL;
+    vm = handlebars_vm_ctor(ctx);
+    handlebars_vm_set_flags(vm, compiler_flags);
+    if (partials) handlebars_vm_set_partials(vm, partials);
+    buffer = talloc_steal(ctx, handlebars_vm_execute(vm, module, input));
+    handlebars_vm_dtor(vm);
     handlebars_value_dtor(input);
-    if (enable_partial_loader) handlebars_value_dtor(partials);
+    if (partials) handlebars_value_dtor(partials);
     if (file) {
         if (!buffer) {
             pyhandlebars_clean();
