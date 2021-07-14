@@ -2,6 +2,7 @@
 
 #include <handlebars/handlebars_compiler.h>
 #include <handlebars/handlebars_delimiters.h>
+#include <handlebars/handlebars_json.h>
 #include <handlebars/handlebars_memory.h>
 #include <handlebars/handlebars_opcode_serializer.h>
 #include <handlebars/handlebars_parser.h>
@@ -9,6 +10,7 @@
 #include <handlebars/handlebars_string.h>
 #include <handlebars/handlebars_value.h>
 #include <handlebars/handlebars_vm.h>
+#include <json-c/json.h>
 #include <talloc.h>
 
 #ifndef _PyUnicode_AsStringAndSize
@@ -69,17 +71,16 @@ PyObject *pyhandlebars_partial_extension(PyObject *extension) {
     const char *data;
     jmp_buf jmp;
     Py_ssize_t len;
-    if (!PyUnicode_Check(extension)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
-    if (!(data = PyUnicode_AsUTF8AndSize(extension, &len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); goto ret; }
+    if (!PyUnicode_Check(extension)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
+    if (!(data = PyUnicode_AsUTF8AndSize(extension, &len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
     if (!root) root = talloc_new(NULL);
     if (!ctx) ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
         pyhandlebars_clean();
-        goto ret;
+        Py_RETURN_NONE;
     }
     partial_extension = handlebars_string_ctor(ctx, data, len);
-ret:
     Py_RETURN_NONE;
 }
 
@@ -87,65 +88,106 @@ PyObject *pyhandlebars_partial_path(PyObject *path) {
     const char *data;
     jmp_buf jmp;
     Py_ssize_t len;
-    if (!PyUnicode_Check(path)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
-    if (!(data = PyUnicode_AsUTF8AndSize(path, &len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); goto ret; }
+    if (!PyUnicode_Check(path)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
+    if (!(data = PyUnicode_AsUTF8AndSize(path, &len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
     if (!root) root = talloc_new(NULL);
     if (!ctx) ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
         pyhandlebars_clean();
-        goto ret;
+        Py_RETURN_NONE;
     }
     partial_path = handlebars_string_ctor(ctx, data, len);
-ret:
     Py_RETURN_NONE;
 }
 
+static void handlebars_value_init_json_string_length(struct handlebars_context *ctx, struct handlebars_value *value, const char *json, size_t length) {
+    enum json_tokener_error error;
+    struct json_object *root;
+    struct json_tokener *tok;
+    if (!(tok = json_tokener_new())) handlebars_throw(ctx, HANDLEBARS_ERROR, "!json_tokener_new");
+    do root = json_tokener_parse_ex(tok, json, length); while ((error = json_tokener_get_error(tok)) == json_tokener_continue);
+    if (error != json_tokener_success) handlebars_throw(ctx, HANDLEBARS_ERROR, "!json_tokener_parse_ex and %s", json_tokener_error_desc(error));
+    if (json_tokener_get_parse_end(tok) < length) handlebars_throw(ctx, HANDLEBARS_ERROR, "json_tokener_get_parse_end < %li", length);
+    json_tokener_free(tok);
+    handlebars_value_init_json_object(ctx, value, root);
+    json_object_put(root);
+}
+
 static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *file) {
-/*    char *output_data;
+    jmp_buf jmp;
+    struct handlebars_ast_node *ast;
+    struct handlebars_compiler *compiler;
+    struct handlebars_module *module;
+    struct handlebars_parser *parser;
+    struct handlebars_program *program;
+    struct handlebars_string *buffer = NULL;
+    struct handlebars_string *tmpl;
+    struct handlebars_value *input;
+    struct handlebars_value *partials;
     const char *json_data;
     const char *template_data;
-    FILE *out;
     Py_ssize_t json_len;
-    Py_ssize_t output_len;
     Py_ssize_t template_len;
-    if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
-    if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
-    if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); goto ret; }
-    if (!(template_data = PyUnicode_AsUTF8AndSize(template, &template_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); goto ret; }
+    if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
+    if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
+    if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
+    if (!(template_data = PyUnicode_AsUTF8AndSize(template, &template_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
+    if (!root) root = talloc_new(NULL);
+    if (!ctx) ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) {
+        PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
+        pyhandlebars_clean();
+        Py_RETURN_NONE;
+    }
+    compiler = handlebars_compiler_ctor(ctx);
+    handlebars_compiler_set_flags(compiler, compiler_flags);
+    parser = handlebars_parser_ctor(ctx);
+    tmpl = handlebars_string_ctor(HBSCTX(parser), template_data, template_len);
+    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
+    program = handlebars_compiler_compile_ex(compiler, ast);
+    module = handlebars_program_serialize(ctx, program);
+    input = handlebars_value_ctor(ctx);
+    handlebars_value_init_json_string_length(ctx, input, json_data, json_len);
+    if (convert_input) handlebars_value_convert(input);
+    if (enable_partial_loader) partials = handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx));
+    do {
+        struct handlebars_vm *vm = handlebars_vm_ctor(ctx);
+        handlebars_vm_set_flags(vm, compiler_flags);
+        if (enable_partial_loader) handlebars_vm_set_partials(vm, partials);
+        if (buffer) handlebars_talloc_free(buffer);
+        buffer = handlebars_vm_execute(vm, module, input);
+        buffer = talloc_steal(ctx, buffer);
+        handlebars_vm_dtor(vm);
+    } while(--run_count > 0);
+    handlebars_value_dtor(input);
+    handlebars_value_dtor(partials);
     if (file) {
-        const char *file_data;
-        if (!PyUnicode_Check(file)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
-        if (!(file_data = PyUnicode_AsUTF8(file))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8"); goto ret; }
-        if (!(out = fopen(file_data, "wb"))) { PyErr_SetString(PyExc_TypeError, "!fopen"); goto ret; }
+        if (!buffer) {
+            pyhandlebars_clean();
+            Py_RETURN_FALSE;
+        } else {
+            const char *name;
+            FILE *out;
+            if (!PyUnicode_Check(file)) handlebars_throw(ctx, HANDLEBARS_ERROR, "!PyUnicode_Check");
+            if (!(name = PyUnicode_AsUTF8(file))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!PyUnicode_AsUTF8");
+            if (!(out = fopen(name, "wb"))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!fopen");
+            fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), out);
+            fclose(out);
+            pyhandlebars_clean();
+            Py_RETURN_TRUE;
+        }
     } else {
-        if (!(out = open_memstream(&output_data, (size_t *)&output_len))) { PyErr_SetString(PyExc_TypeError, "!open_memstream"); goto ret; }
+        if (!buffer) {
+            pyhandlebars_clean();
+            Py_RETURN_NONE;
+        } else {
+            PyObject *output = PyUnicode_FromStringAndSize(hbs_str_val(buffer), hbs_str_len(buffer));
+            pyhandlebars_clean();
+            return output;
+        }
     }
-    switch (pymustach_process(template_data, template_len, json_data, json_len, out)) {
-        case MUSTACH_OK: break;
-        case MUSTACH_ERROR_SYSTEM: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_SYSTEM"); goto free;
-        case MUSTACH_ERROR_UNEXPECTED_END: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_UNEXPECTED_END"); goto free;
-        case MUSTACH_ERROR_EMPTY_TAG: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_EMPTY_TAG"); goto free;
-        case MUSTACH_ERROR_TAG_TOO_LONG: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_TAG_TOO_LONG"); goto free;
-        case MUSTACH_ERROR_BAD_SEPARATORS: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_BAD_SEPARATORS"); goto free;
-        case MUSTACH_ERROR_TOO_DEEP: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_TOO_DEEP"); goto free;
-        case MUSTACH_ERROR_CLOSING: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_CLOSING"); goto free;
-        case MUSTACH_ERROR_BAD_UNESCAPE_TAG: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_BAD_UNESCAPE_TAG"); goto free;
-        case MUSTACH_ERROR_INVALID_ITF: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_INVALID_ITF"); goto free;
-        case MUSTACH_ERROR_ITEM_NOT_FOUND: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_ITEM_NOT_FOUND"); goto free;
-        case MUSTACH_ERROR_PARTIAL_NOT_FOUND: PyErr_SetString(PyExc_TypeError, "MUSTACH_ERROR_PARTIAL_NOT_FOUND"); goto free;
-        default: PyErr_SetString(PyExc_TypeError, "ngx_http_mustach_process"); goto free;
-    }
-    if (file) Py_RETURN_TRUE; else {
-        fclose(out);
-        PyObject *unicode = PyUnicode_FromStringAndSize(output_data, output_len);
-        free(output_data);
-        return unicode;
-    }
-free:
-    if (!file) free(output_data);
-ret:*/
-    Py_RETURN_NONE;
 }
 
 PyObject *pyhandlebars(PyObject *json, PyObject *template) { return pyhandlebars_internal(json, template, NULL); }
