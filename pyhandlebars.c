@@ -28,8 +28,6 @@ const char *PyUnicode_AsUTF8(PyObject *unicode) {
 }
 #endif
 
-static struct handlebars_context *ctx = NULL;
-static TALLOC_CTX *root = NULL;
 static unsigned long compiler_flags = handlebars_compiler_flag_none;
 
 PyObject *pyhandlebars_compiler_flag_all(void) { compiler_flags |= handlebars_compiler_flag_all; Py_RETURN_NONE; }
@@ -48,13 +46,6 @@ PyObject *pyhandlebars_compiler_flag_string_params(void) { compiler_flags |= han
 PyObject *pyhandlebars_compiler_flag_track_ids(void) { compiler_flags |= handlebars_compiler_flag_track_ids; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_use_data(void) { compiler_flags |= handlebars_compiler_flag_use_data; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_use_depths(void) { compiler_flags |= handlebars_compiler_flag_use_depths; Py_RETURN_NONE; }
-
-static void pyhandlebars_clean(void) {
-    handlebars_context_dtor(ctx);
-    ctx = NULL;
-    talloc_free(root);
-    root = NULL;
-}
 
 static void handlebars_value_init_json_string_length(struct handlebars_context *ctx, struct handlebars_value *value, const char *json, size_t length) {
     enum json_tokener_error error;
@@ -77,6 +68,7 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     Py_ssize_t template_len;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
+    struct handlebars_context *ctx;
     struct handlebars_module *module;
     struct handlebars_parser *parser;
     struct handlebars_program *program;
@@ -85,15 +77,17 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     struct handlebars_value *input;
     struct handlebars_value *partials;
     struct handlebars_vm *vm;
+    TALLOC_CTX *root;
     if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
     if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
     if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
     if (!(template_data = PyUnicode_AsUTF8AndSize(template, &template_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
-    if (!root) root = talloc_new(NULL);
-    if (!ctx) ctx = handlebars_context_ctor_ex(root);
+    root = talloc_new(NULL);
+    ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
-        pyhandlebars_clean();
+        handlebars_context_dtor(ctx);
+        talloc_free(root);
         Py_RETURN_NONE;
     }
     compiler = handlebars_compiler_ctor(ctx);
@@ -117,7 +111,8 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     handlebars_value_dtor(partials);
     if (file) {
         if (!buffer) {
-            pyhandlebars_clean();
+            handlebars_context_dtor(ctx);
+            talloc_free(root);
             Py_RETURN_FALSE;
         } else {
             const char *name;
@@ -127,16 +122,19 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
             if (!(out = fopen(name, "wb"))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!fopen");
             fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), out);
             fclose(out);
-            pyhandlebars_clean();
+            handlebars_context_dtor(ctx);
+            talloc_free(root);
             Py_RETURN_TRUE;
         }
     } else {
         if (!buffer) {
-            pyhandlebars_clean();
+            handlebars_context_dtor(ctx);
+            talloc_free(root);
             Py_RETURN_NONE;
         } else {
             PyObject *output = PyUnicode_FromStringAndSize(hbs_str_val(buffer), hbs_str_len(buffer));
-            pyhandlebars_clean();
+            handlebars_context_dtor(ctx);
+            talloc_free(root);
             return output;
         }
     }
