@@ -52,6 +52,53 @@ PyObject *pyhandlebars_compiler_flag_track_ids(void) { compiler_flags |= handleb
 PyObject *pyhandlebars_compiler_flag_use_data(void) { compiler_flags |= handlebars_compiler_flag_use_data; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_use_depths(void) { compiler_flags |= handlebars_compiler_flag_use_depths; Py_RETURN_NONE; }
 
+PyObject *pyhandlebars_convert_input(bool convert) { convert_input = convert; Py_RETURN_NONE; }
+PyObject *pyhandlebars_enable_partial_loader(bool partial) { enable_partial_loader = partial; Py_RETURN_NONE; }
+PyObject *pyhandlebars_run_count(long run) { run_count = run; Py_RETURN_NONE; }
+
+static void pyhandlebars_clean(void) {
+    handlebars_context_dtor(ctx);
+    ctx = NULL;
+    talloc_free(root);
+    root = NULL;
+    partial_extension = NULL;
+    partial_path = NULL;
+}
+
+PyObject *pyhandlebars_partial_extension(PyObject *extension) {
+    const char *data;
+    jmp_buf jmp;
+    Py_ssize_t len;
+    if (!PyUnicode_Check(extension)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
+    if (!(data = PyUnicode_AsUTF8AndSize(extension, &len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); goto ret; }
+    if (!root) root = talloc_new(NULL);
+    if (!ctx) ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) {
+        PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
+        pyhandlebars_clean();
+        goto ret;
+    }
+    partial_extension = handlebars_string_ctor(ctx, data, len);
+ret:
+    Py_RETURN_NONE;
+}
+
+/*PyObject *pyhandlebars_partial_path(PyObject *path) {
+    jmp_buf jmp;
+    text *path;
+    if (PG_ARGISNULL(0)) E("path is null!");
+    path = DatumGetTextP(PG_GETARG_DATUM(0));
+    if (!root) root = talloc_new(NULL);
+    if (!ctx) ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) {
+        const char *error = pstrdup(handlebars_error_message(ctx));
+        pyhandlebars_clean();
+        E(error);
+    }
+    partial_path = handlebars_string_ctor(ctx, VARDATA_ANY(path), VARSIZE_ANY_EXHDR(path));
+    PG_RETURN_NULL();
+}*/
+
 static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *file) {
 /*    char *output_data;
     const char *json_data;
