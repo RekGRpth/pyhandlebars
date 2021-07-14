@@ -11,7 +11,6 @@
 #include <handlebars/handlebars_value.h>
 #include <handlebars/handlebars_vm.h>
 #include <json-c/json.h>
-#include <talloc.h>
 
 #ifndef _PyUnicode_AsStringAndSize
 const char *PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *psize) {
@@ -102,7 +101,7 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);
     handlebars_vm_set_partials(vm, partials);
-    buffer = talloc_steal(ctx, handlebars_vm_execute(vm, module, input));
+    buffer = handlebars_vm_execute(vm, module, input);
     handlebars_vm_dtor(vm);
     handlebars_value_dtor(input);
     handlebars_value_dtor(partials);
