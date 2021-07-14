@@ -28,7 +28,6 @@ const char *PyUnicode_AsUTF8(PyObject *unicode) {
 }
 #endif
 
-static bool convert_input = true;
 static bool enable_partial_loader = true;
 static struct handlebars_context *ctx = NULL;
 static struct handlebars_string *partial_extension = NULL;
@@ -53,7 +52,6 @@ PyObject *pyhandlebars_compiler_flag_track_ids(void) { compiler_flags |= handleb
 PyObject *pyhandlebars_compiler_flag_use_data(void) { compiler_flags |= handlebars_compiler_flag_use_data; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_use_depths(void) { compiler_flags |= handlebars_compiler_flag_use_depths; Py_RETURN_NONE; }
 
-PyObject *pyhandlebars_convert_input(bool convert) { convert_input = convert; Py_RETURN_NONE; }
 PyObject *pyhandlebars_enable_partial_loader(bool partial) { enable_partial_loader = partial; Py_RETURN_NONE; }
 
 static void pyhandlebars_clean(void) {
@@ -149,7 +147,7 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     module = handlebars_program_serialize(ctx, program);
     input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, json_data, json_len);
-    if (convert_input) handlebars_value_convert(input);
+//    if (convert_input) handlebars_value_convert(input);
     partials = enable_partial_loader ? handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx)) : NULL;
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);
