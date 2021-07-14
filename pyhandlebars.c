@@ -162,7 +162,7 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
         handlebars_vm_dtor(vm);
     } while(--run_count > 0);
     handlebars_value_dtor(input);
-    handlebars_value_dtor(partials);
+    if (enable_partial_loader) handlebars_value_dtor(partials);
     if (file) {
         if (!buffer) {
             pyhandlebars_clean();
