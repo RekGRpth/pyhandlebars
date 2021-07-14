@@ -24,11 +24,6 @@ extern PyObject *pyhandlebars_compiler_flag_track_ids(void);
 extern PyObject *pyhandlebars_compiler_flag_use_data(void);
 extern PyObject *pyhandlebars_compiler_flag_use_depths(void);
 
-extern PyObject *pyhandlebars_enable_partial_loader(bool partial);
-
-extern PyObject *pyhandlebars_partial_extension(PyObject *extension);
-extern PyObject *pyhandlebars_partial_path(PyObject *path);
-
 extern PyObject *pyhandlebars(PyObject *json, PyObject *template);
 extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file);
 %}
@@ -49,11 +44,6 @@ extern PyObject *pyhandlebars_compiler_flag_string_params(void);
 extern PyObject *pyhandlebars_compiler_flag_track_ids(void);
 extern PyObject *pyhandlebars_compiler_flag_use_data(void);
 extern PyObject *pyhandlebars_compiler_flag_use_depths(void);
-
-extern PyObject *pyhandlebars_enable_partial_loader(bool partial);
-
-extern PyObject *pyhandlebars_partial_extension(PyObject *extension);
-extern PyObject *pyhandlebars_partial_path(PyObject *path);
 
 extern PyObject *pyhandlebars(PyObject *json, PyObject *template);
 extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file);
