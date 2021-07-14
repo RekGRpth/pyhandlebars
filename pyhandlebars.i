@@ -24,6 +24,7 @@ extern PyObject *pyhandlebars_enable_partial_loader(bool partial);
 extern PyObject *pyhandlebars_run_count(long run);
 
 extern PyObject *pyhandlebars_partial_extension(PyObject *extension);
+extern PyObject *pyhandlebars_partial_path(PyObject *path);
 
 extern PyObject *pyhandlebars(PyObject *json, PyObject *template);
 extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file);
@@ -51,6 +52,7 @@ extern PyObject *pyhandlebars_enable_partial_loader(bool partial);
 extern PyObject *pyhandlebars_run_count(long run);
 
 extern PyObject *pyhandlebars_partial_extension(PyObject *extension);
+extern PyObject *pyhandlebars_partial_path(PyObject *path);
 
 extern PyObject *pyhandlebars(PyObject *json, PyObject *template);
 extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file);

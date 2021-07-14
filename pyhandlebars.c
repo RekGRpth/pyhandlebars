@@ -83,21 +83,23 @@ ret:
     Py_RETURN_NONE;
 }
 
-/*PyObject *pyhandlebars_partial_path(PyObject *path) {
+PyObject *pyhandlebars_partial_path(PyObject *path) {
+    const char *data;
     jmp_buf jmp;
-    text *path;
-    if (PG_ARGISNULL(0)) E("path is null!");
-    path = DatumGetTextP(PG_GETARG_DATUM(0));
+    Py_ssize_t len;
+    if (!PyUnicode_Check(path)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); goto ret; }
+    if (!(data = PyUnicode_AsUTF8AndSize(path, &len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); goto ret; }
     if (!root) root = talloc_new(NULL);
     if (!ctx) ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) {
-        const char *error = pstrdup(handlebars_error_message(ctx));
+        PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
         pyhandlebars_clean();
-        E(error);
+        goto ret;
     }
-    partial_path = handlebars_string_ctor(ctx, VARDATA_ANY(path), VARSIZE_ANY_EXHDR(path));
-    PG_RETURN_NULL();
-}*/
+    partial_path = handlebars_string_ctor(ctx, data, len);
+ret:
+    Py_RETURN_NONE;
+}
 
 static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *file) {
 /*    char *output_data;
