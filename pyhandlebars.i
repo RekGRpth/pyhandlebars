@@ -1,9 +1,4 @@
 %module pyhandlebars
-
-%begin %{
-#define SWIG_PYTHON_2_UNICODE
-%}
-
 %{
 #include <stdbool.h>
 

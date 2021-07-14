@@ -77,17 +77,14 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     struct handlebars_value *input;
     struct handlebars_value *partials;
     struct handlebars_vm *vm;
-    TALLOC_CTX *root;
     if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
     if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
     if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
     if (!(template_data = PyUnicode_AsUTF8AndSize(template, &template_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
-    root = talloc_new(NULL);
-    ctx = handlebars_context_ctor_ex(root);
+    ctx = handlebars_context_ctor();
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
         handlebars_context_dtor(ctx);
-        talloc_free(root);
         Py_RETURN_NONE;
     }
     compiler = handlebars_compiler_ctor(ctx);
@@ -112,7 +109,6 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     if (file) {
         if (!buffer) {
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             Py_RETURN_FALSE;
         } else {
             const char *name;
@@ -123,18 +119,15 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
             fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), out);
             fclose(out);
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             Py_RETURN_TRUE;
         }
     } else {
         if (!buffer) {
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             Py_RETURN_NONE;
         } else {
             PyObject *output = PyUnicode_FromStringAndSize(hbs_str_val(buffer), hbs_str_len(buffer));
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             return output;
         }
     }
