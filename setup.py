@@ -11,7 +11,7 @@ if sys.platform.startswith("linux"):
     module = Extension(
         "_pyhandlebars",
         ["pyhandlebars.i", "pyhandlebars.c"],
-        libraries=["handlebars", "json-c"],
+        libraries=["handlebars"],
     )
 
 setup(

@@ -10,7 +10,6 @@
 #include <handlebars/handlebars_string.h>
 #include <handlebars/handlebars_value.h>
 #include <handlebars/handlebars_vm.h>
-#include <json-c/json.h>
 
 #ifndef _PyUnicode_AsStringAndSize
 const char *PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *psize) {
@@ -46,19 +45,6 @@ PyObject *pyhandlebars_compiler_flag_track_ids(void) { compiler_flags |= handleb
 PyObject *pyhandlebars_compiler_flag_use_data(void) { compiler_flags |= handlebars_compiler_flag_use_data; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_use_depths(void) { compiler_flags |= handlebars_compiler_flag_use_depths; Py_RETURN_NONE; }
 
-static void handlebars_value_init_json_string_length(struct handlebars_context *ctx, struct handlebars_value *value, const char *json, size_t length) {
-    enum json_tokener_error error;
-    struct json_object *root;
-    struct json_tokener *tok;
-    if (!(tok = json_tokener_new())) handlebars_throw(ctx, HANDLEBARS_ERROR, "!json_tokener_new");
-    do root = json_tokener_parse_ex(tok, json, length); while ((error = json_tokener_get_error(tok)) == json_tokener_continue);
-    if (error != json_tokener_success) handlebars_throw(ctx, HANDLEBARS_ERROR, "!json_tokener_parse_ex and %s", json_tokener_error_desc(error));
-    if (json_tokener_get_parse_end(tok) < length) handlebars_throw(ctx, HANDLEBARS_ERROR, "json_tokener_get_parse_end < %li", length);
-    json_tokener_free(tok);
-    handlebars_value_init_json_object(ctx, value, root);
-    json_object_put(root);
-}
-
 static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *file) {
     const char *json_data;
     const char *template_data;
@@ -89,13 +75,14 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     compiler = handlebars_compiler_ctor(ctx);
     handlebars_compiler_set_flags(compiler, compiler_flags);
     parser = handlebars_parser_ctor(ctx);
-    tmpl = handlebars_string_ctor(HBSCTX(parser), template_data, template_len);
+    tmpl = handlebars_string_ctor(ctx, template_data, template_len);
     if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
     ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
     program = handlebars_compiler_compile_ex(compiler, ast);
     module = handlebars_program_serialize(ctx, program);
     input = handlebars_value_ctor(ctx);
-    handlebars_value_init_json_string_length(ctx, input, json_data, json_len);
+    buffer = handlebars_string_ctor(ctx, json_data, json_len);
+    handlebars_value_init_json_string(ctx, input, hbs_str_val(buffer));
 //    if (convert_input) handlebars_value_convert(input);
     partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, "", sizeof("") - 1), handlebars_value_ctor(ctx));
     vm = handlebars_vm_ctor(ctx);
