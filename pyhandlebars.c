@@ -26,7 +26,7 @@ const char *PyUnicode_AsUTF8(PyObject *unicode) {
 }
 #endif
 
-static unsigned long compiler_flags = handlebars_compiler_flag_none;
+static unsigned long compiler_flags = handlebars_compiler_flag_compat;
 
 PyObject *pyhandlebars_compiler_flag_all(void) { compiler_flags |= handlebars_compiler_flag_all; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_alternate_decorators(void) { compiler_flags |= handlebars_compiler_flag_alternate_decorators; Py_RETURN_NONE; }
