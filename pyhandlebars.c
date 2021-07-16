@@ -83,7 +83,7 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     input = handlebars_value_ctor(ctx);
     buffer = handlebars_string_ctor(ctx, json_data, json_len);
     handlebars_value_init_json_string(ctx, input, hbs_str_val(buffer));
-//    if (convert_input) handlebars_value_convert(input);
+    handlebars_value_convert(input);
     partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, "", sizeof("") - 1), handlebars_value_ctor(ctx));
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);
