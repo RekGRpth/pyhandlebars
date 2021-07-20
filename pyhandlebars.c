@@ -26,7 +26,7 @@ const char *PyUnicode_AsUTF8(PyObject *unicode) {
 }
 #endif
 
-static unsigned long compiler_flags = handlebars_compiler_flag_compat;
+static unsigned long compiler_flags = handlebars_compiler_flag_alternate_decorators|handlebars_compiler_flag_compat|handlebars_compiler_flag_explicit_partial_context|handlebars_compiler_flag_ignore_standalone|handlebars_compiler_flag_known_helpers_only|handlebars_compiler_flag_mustache_style_lambdas|handlebars_compiler_flag_prevent_indent|handlebars_compiler_flag_use_data|handlebars_compiler_flag_use_depths;
 
 PyObject *pyhandlebars_compiler_flag_all(void) { compiler_flags |= handlebars_compiler_flag_all; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_alternate_decorators(void) { compiler_flags |= handlebars_compiler_flag_alternate_decorators; Py_RETURN_NONE; }
