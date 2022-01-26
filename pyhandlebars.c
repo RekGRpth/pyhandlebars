@@ -62,15 +62,15 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     struct handlebars_value *input;
     struct handlebars_value *partials;
     struct handlebars_vm *vm;
-    if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
-    if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); Py_RETURN_NONE; }
-    if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
-    if (!(template_data = PyUnicode_AsUTF8AndSize(template, &template_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); Py_RETURN_NONE; }
+    if (!PyUnicode_Check(json)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); return NULL; }
+    if (!PyUnicode_Check(template)) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_Check"); return NULL; }
+    if (!(json_data = PyUnicode_AsUTF8AndSize(json, &json_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); return NULL; }
+    if (!(template_data = PyUnicode_AsUTF8AndSize(template, &template_len))) { PyErr_SetString(PyExc_TypeError, "!PyUnicode_AsUTF8AndSize"); return NULL; }
     ctx = handlebars_context_ctor();
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         PyErr_SetString(PyExc_TypeError, handlebars_error_message(ctx));
         handlebars_context_dtor(ctx);
-        Py_RETURN_NONE;
+        return NULL;
     }
     compiler = handlebars_compiler_ctor(ctx);
     handlebars_compiler_set_flags(compiler, compiler_flags);
