@@ -20,7 +20,7 @@ extern PyObject *pyhandlebars_compiler_flag_use_data(void);
 extern PyObject *pyhandlebars_compiler_flag_use_depths(void);
 
 extern PyObject *pyhandlebars(PyObject *json, PyObject *template);
-extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file);
+extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *name);
 %}
 
 extern PyObject *pyhandlebars_compiler_flag_all(void);
@@ -41,4 +41,4 @@ extern PyObject *pyhandlebars_compiler_flag_use_data(void);
 extern PyObject *pyhandlebars_compiler_flag_use_depths(void);
 
 extern PyObject *pyhandlebars(PyObject *json, PyObject *template);
-extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file);
+extern PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *name);

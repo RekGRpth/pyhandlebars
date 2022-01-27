@@ -45,7 +45,7 @@ PyObject *pyhandlebars_compiler_flag_track_ids(void) { compiler_flags |= handleb
 PyObject *pyhandlebars_compiler_flag_use_data(void) { compiler_flags |= handlebars_compiler_flag_use_data; Py_RETURN_NONE; }
 PyObject *pyhandlebars_compiler_flag_use_depths(void) { compiler_flags |= handlebars_compiler_flag_use_depths; Py_RETURN_NONE; }
 
-static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *file) {
+static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObject *name) {
     const char *json_data;
     const char *template_data;
     jmp_buf jmp;
@@ -92,18 +92,18 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
     handlebars_vm_dtor(vm);
     handlebars_value_dtor(input);
     handlebars_value_dtor(partials);
-    if (file) {
+    if (name) {
         if (!buffer) {
             handlebars_context_dtor(ctx);
             Py_RETURN_FALSE;
         } else {
-            const char *name;
-            FILE *out;
-            if (!PyUnicode_Check(file)) handlebars_throw(ctx, HANDLEBARS_ERROR, "!PyUnicode_Check");
-            if (!(name = PyUnicode_AsUTF8(file))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!PyUnicode_AsUTF8");
-            if (!(out = fopen(name, "wb"))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!fopen");
-            fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), out);
-            fclose(out);
+            const char *file_data;
+            FILE *file;
+            if (!PyUnicode_Check(name)) handlebars_throw(ctx, HANDLEBARS_ERROR, "!PyUnicode_Check");
+            if (!(file_data = PyUnicode_AsUTF8(name))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!PyUnicode_AsUTF8");
+            if (!(file = fopen(file_data, "wb"))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!fopen");
+            fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), file);
+            fclose(file);
             handlebars_context_dtor(ctx);
             Py_RETURN_TRUE;
         }
@@ -120,4 +120,4 @@ static PyObject *pyhandlebars_internal(PyObject *json, PyObject *template, PyObj
 }
 
 PyObject *pyhandlebars(PyObject *json, PyObject *template) { return pyhandlebars_internal(json, template, NULL); }
-PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *file) { return pyhandlebars_internal(json, template, file); }
+PyObject *pyhandlebars_file(PyObject *json, PyObject *template, PyObject *name) { return pyhandlebars_internal(json, template, name); }
